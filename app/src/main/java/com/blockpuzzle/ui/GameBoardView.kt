@@ -11,25 +11,37 @@ import com.blockpuzzle.game.GameManager
 import kotlin.math.roundToInt
 
 /**
- * GameBoardView v2 — Ghost always visible:
- *   valid   → block color semi-transparent + white border
- *   invalid → red tint + red border + ✕ on conflicting cells
+ * GameBoardView v3
+ *
+ * Ghost rules:
+ *  - يظهر دائماً أثناء السحب
+ *  - صالح       → لون القطعة شفاف + حدود بيضاء
+ *  - غير صالح   → أحمر (الخلايا المتعارضة: أحمر غامق + ✕)
+ *  - خارج الشبكة → تُرسم أيضاً بأحمر خفيف خارج حدود اللوحة
  */
 class GameBoardView @JvmOverloads constructor(
-    context: Context,
-    attrs: AttributeSet? = null
+    context: Context, attrs: AttributeSet? = null
 ) : View(context, attrs) {
 
     var gameManager: GameManager? = null
         set(value) { field = value; invalidate() }
 
     var onBlockPickedUp: ((Int) -> Unit)? = null
-    var onBlockDropped:  (() -> Unit)?   = null
+    var onBlockDropped:  (() -> Unit)?    = null
+
+    // Expose geometry so ParticleView can read it
+    var exposedCellPx  = 0f; private set
+    var exposedBoardOX = 0f; private set
+    var exposedBoardOY = 0f; private set
 
     // ── Layout ────────────────────────────────────────────────────────────
     private var cellPx  = 0f
+        set(v) { field = v; exposedCellPx = v }
     private var boardOX = 0f
+        set(v) { field = v; exposedBoardOX = v }
     private var boardOY = 0f
+        set(v) { field = v; exposedBoardOY = v }
+
     private val radius  get() = cellPx * 0.14f
     private val padding get() = cellPx * 0.055f
 
@@ -42,19 +54,18 @@ class GameBoardView @JvmOverloads constructor(
     private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; alpha = 40 }
 
     // Ghost valid
-    private val ghostFillPaint  = Paint(Paint.ANTI_ALIAS_FLAG).apply { alpha = 140 }
+    private val ghostFillPaint   = Paint(Paint.ANTI_ALIAS_FLAG).apply { alpha = 140 }
     private val ghostBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE; strokeWidth = 2.5f; color = Color.parseColor("#AAFFFFFF")
     }
-
     // Ghost invalid
-    private val ghostRedPaint   = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF1744") }
-    private val ghostRedBorder  = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val ghostRedPaint  = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF1744") }
+    private val ghostRedBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE; strokeWidth = 2.5f; color = Color.parseColor("#FF1744")
     }
     private val xMarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE; style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND; alpha = 210
+        strokeCap = Paint.Cap.ROUND
     }
 
     // ── Drag state ────────────────────────────────────────────────────────
@@ -94,7 +105,7 @@ class GameBoardView @JvmOverloads constructor(
         val gm    = gameManager ?: return
         val board = gm.board
 
-        // 1. Background
+        // 1. Board background
         tmpRect.set(boardOX, boardOY,
             boardOX + cellPx * board.gridSize, boardOY + cellPx * board.gridSize)
         canvas.drawRoundRect(tmpRect, radius * 2, radius * 2, gridPaint)
@@ -103,13 +114,14 @@ class GameBoardView @JvmOverloads constructor(
         for (r in 0 until board.gridSize)
             for (c in 0 until board.gridSize) {
                 val color = board.board[r][c]
-                if (color == 0) drawEmptyCell(canvas, r, c) else drawFilledCell(canvas, r, c, color)
+                if (color == 0) drawEmptyCell(canvas, r, c)
+                else            drawFilledCell(canvas, r, c, color)
             }
 
         // 3. Would-clear highlight (valid only)
         if (dragBlock != null && ghostValid) drawClearPreview(canvas)
 
-        // 4. Ghost — ALWAYS when dragging
+        // 4. Ghost — دائماً، حتى خارج الشبكة
         if (dragBlock != null) drawGhost(canvas)
 
         // 5. Drop bounce
@@ -119,6 +131,8 @@ class GameBoardView @JvmOverloads constructor(
         clearAnimator.draw(canvas, cellPx, boardOX, boardOY, board.gridSize)
     }
 
+    // ── Cell renderers ─────────────────────────────────────────────────────
+
     private fun drawEmptyCell(canvas: Canvas, r: Int, c: Int) {
         val l = boardOX + c * cellPx + padding
         val t = boardOY + r * cellPx + padding
@@ -127,8 +141,8 @@ class GameBoardView @JvmOverloads constructor(
     }
 
     private fun drawFilledCell(canvas: Canvas, r: Int, c: Int, color: Int, scl: Float = 1f) {
-        val cx = boardOX + c * cellPx + cellPx / 2f
-        val cy = boardOY + r * cellPx + cellPx / 2f
+        val cx   = boardOX + c * cellPx + cellPx / 2f
+        val cy   = boardOY + r * cellPx + cellPx / 2f
         val half = (cellPx / 2f - padding) * scl
         val l = cx - half; val t = cy - half
         val rr = cx + half; val rb = cy + half
@@ -146,6 +160,8 @@ class GameBoardView @JvmOverloads constructor(
         canvas.drawRoundRect(tmpRect, rad, rad, shinePaint)
     }
 
+    // ── Ghost (النظام الجديد — يرسم خارج الشبكة أيضاً) ───────────────────
+
     private fun drawGhost(canvas: Canvas) {
         val block = dragBlock ?: return
         val gs    = gameManager?.board?.gridSize ?: 8
@@ -155,33 +171,47 @@ class GameBoardView @JvmOverloads constructor(
         for ((dr, dc) in block.cells) {
             val r = ghostAnchorR + dr
             val c = ghostAnchorC + dc
-            if (r < 0 || r >= gs || c < 0 || c >= gs) continue   // off-grid → skip
 
+            // حساب الموضع البكسلي دائماً — حتى لو خارج الشبكة
             val l = boardOX + c * cellPx + pad
             val t = boardOY + r * cellPx + pad
             tmpRect.set(l, t, l + inner, t + inner)
 
-            if (ghostValid) {
-                // ── صالح: لون القطعة + حدود بيضاء شفافة ──────────────
-                ghostFillPaint.color = block.color
-                canvas.drawRoundRect(tmpRect, radius, radius, ghostFillPaint)
-                canvas.drawRoundRect(tmpRect, radius, radius, ghostBorderPaint)
-            } else {
-                // ── غير صالح: أحمر ──────────────────────────────────────
-                val isConflict = Pair(r, c) in conflictCells
-                ghostRedPaint.alpha  = if (isConflict) 200 else 120
-                ghostRedBorder.alpha = if (isConflict) 255 else 170
-                canvas.drawRoundRect(tmpRect, radius, radius, ghostRedPaint)
-                canvas.drawRoundRect(tmpRect, radius, radius, ghostRedBorder)
+            val isOffGrid  = r < 0 || r >= gs || c < 0 || c >= gs
+            val isConflict = !isOffGrid && Pair(r, c) in conflictCells
 
-                // ✕ على الخلايا المتعارضة فقط
-                if (isConflict) {
+            when {
+                // ── صالح تماماً (كل الخلايا في الشبكة وفارغة) ────────────
+                ghostValid -> {
+                    ghostFillPaint.color = block.color
+                    canvas.drawRoundRect(tmpRect, radius, radius, ghostFillPaint)
+                    canvas.drawRoundRect(tmpRect, radius, radius, ghostBorderPaint)
+                }
+                // ── خارج الشبكة: أحمر خفيف جداً (يشير للخروج) ────────────
+                isOffGrid -> {
+                    ghostRedPaint.alpha  = 80
+                    ghostRedBorder.alpha = 110
+                    canvas.drawRoundRect(tmpRect, radius, radius, ghostRedPaint)
+                    canvas.drawRoundRect(tmpRect, radius, radius, ghostRedBorder)
+                }
+                // ── تعارض مع بلوكة موجودة: أحمر غامق + ✕ ─────────────────
+                isConflict -> {
+                    ghostRedPaint.alpha  = 200
+                    ghostRedBorder.alpha = 255
+                    canvas.drawRoundRect(tmpRect, radius, radius, ghostRedPaint)
+                    canvas.drawRoundRect(tmpRect, radius, radius, ghostRedBorder)
                     xMarkPaint.strokeWidth = cellPx * 0.07f
                     val arm = inner * 0.26f
-                    val cx  = l + inner / 2f
-                    val cy  = t + inner / 2f
+                    val cx  = l + inner / 2f; val cy = t + inner / 2f
                     canvas.drawLine(cx - arm, cy - arm, cx + arm, cy + arm, xMarkPaint)
                     canvas.drawLine(cx + arm, cy - arm, cx - arm, cy + arm, xMarkPaint)
+                }
+                // ── داخل الشبكة لكن القطعة غير صالحة (خلية فارغة مع تعارض غيرها) ─
+                else -> {
+                    ghostRedPaint.alpha  = 120
+                    ghostRedBorder.alpha = 160
+                    canvas.drawRoundRect(tmpRect, radius, radius, ghostRedPaint)
+                    canvas.drawRoundRect(tmpRect, radius, radius, ghostRedBorder)
                 }
             }
         }
@@ -253,7 +283,6 @@ class GameBoardView @JvmOverloads constructor(
         ghostAnchorC = col
         ghostValid   = gm.board.canPlace(block, row, col)
 
-        // Cells that collide with existing blocks
         conflictCells = if (!ghostValid) {
             block.cells.mapNotNull { (dr, dc) ->
                 val r = row + dr; val c = col + dc
