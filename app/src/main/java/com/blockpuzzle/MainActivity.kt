@@ -11,39 +11,34 @@ import androidx.appcompat.app.AppCompatActivity
 import com.blockpuzzle.game.GameManager
 import com.blockpuzzle.ui.DragCoordinator
 import com.blockpuzzle.ui.GameBoardView
+import com.blockpuzzle.ui.ParticleView
 import com.blockpuzzle.ui.TrayView
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var gameManager:    GameManager
-    private lateinit var boardView:      GameBoardView
-    private lateinit var trayView:       TrayView
-    private lateinit var tvScore:        TextView
-    private lateinit var tvHighScore:    TextView
-    private lateinit var tvCombo:        TextView
-    private lateinit var btnRestart:     View
-    private lateinit var gameOverLayout: View
-    private lateinit var tvFinalScore:   TextView
-    private lateinit var btnPlayAgain:   View
+    private lateinit var gameManager:     GameManager
+    private lateinit var boardView:       GameBoardView
+    private lateinit var trayView:        TrayView
+    private lateinit var particleView:    ParticleView
+    private lateinit var tvScore:         TextView
+    private lateinit var tvHighScore:     TextView
+    private lateinit var tvCombo:         TextView
+    private lateinit var btnRestart:      View
+    private lateinit var gameOverLayout:  View
+    private lateinit var tvFinalScore:    TextView
+    private lateinit var btnPlayAgain:    View
     private lateinit var dragCoordinator: DragCoordinator
-
-    // ══════════════════════════════════════════════════════════════════════
-    // Lifecycle
-    // ══════════════════════════════════════════════════════════════════════
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Full-screen immersive
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = (
             View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         )
-
         setContentView(R.layout.activity_main)
-
         bindViews()
         setupGame()
         setupDrag()
@@ -55,13 +50,12 @@ class MainActivity : AppCompatActivity() {
         gameManager.saveState()
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // Setup
-    // ══════════════════════════════════════════════════════════════════════
+    // ── Bind ──────────────────────────────────────────────────────────────
 
     private fun bindViews() {
         boardView      = findViewById(R.id.boardView)
         trayView       = findViewById(R.id.trayView)
+        particleView   = findViewById(R.id.particleView)
         tvScore        = findViewById(R.id.tvScore)
         tvHighScore    = findViewById(R.id.tvHighScore)
         tvCombo        = findViewById(R.id.tvCombo)
@@ -71,48 +65,55 @@ class MainActivity : AppCompatActivity() {
         btnPlayAgain   = findViewById(R.id.btnPlayAgain)
     }
 
+    // ── Game setup ────────────────────────────────────────────────────────
+
     private fun setupGame() {
         gameManager = GameManager(this)
-
         boardView.gameManager = gameManager
         trayView.gameManager  = gameManager
 
-        // Score updates
         gameManager.onScoreChanged = { score, high ->
             runOnUiThread {
                 tvScore.text     = score.toString()
-                tvHighScore.text = "BEST $high"
+                tvHighScore.text = high.toString()
             }
         }
 
-        // Line clears → flash animation + combo label
         gameManager.onLinesCleared = { rows, cols, combo ->
             runOnUiThread {
                 boardView.triggerClearAnimation(rows, cols)
+                // جزيئات ← بعد تأخير خفيف حتى تُرى الـ flash أولاً
+                particleView.postDelayed({
+                    particleView.burst(
+                        rows       = rows,
+                        cols       = cols,
+                        cellPx     = boardView.exposedCellPx,
+                        boardOX    = boardView.exposedBoardOX,
+                        boardOY    = boardView.exposedBoardOY,
+                        gridSize   = gameManager.board.gridSize,
+                        boardColors = gameManager.board.board
+                    )
+                }, 80)
                 if (combo.isNotEmpty()) showCombo(combo)
             }
         }
 
-        // Game over
         gameManager.onGameOver = {
             runOnUiThread { showGameOver() }
         }
 
-        // Tray refresh
         gameManager.onTrayChanged = {
             runOnUiThread {
                 trayView.refresh()
-                // Animate all filled slots when tray refills
-                for (i in 0..2) {
-                    if (gameManager.tray[i] != null) trayView.animateSlotAppear(i)
-                }
+                for (i in 0..2) if (gameManager.tray[i] != null) trayView.animateSlotAppear(i)
             }
         }
 
-        // Initial score display
         tvScore.text     = "0"
-        tvHighScore.text = "BEST ${gameManager.score.highScore}"
+        tvHighScore.text = gameManager.score.highScore.toString()
     }
+
+    // ── Drag ──────────────────────────────────────────────────────────────
 
     private fun setupDrag() {
         dragCoordinator = DragCoordinator(
@@ -120,16 +121,10 @@ class MainActivity : AppCompatActivity() {
             tray  = trayView,
             board = boardView
         )
-
-        // TrayView tells us when a drag starts
         trayView.onDragStarted = { idx, block, rawX, rawY ->
             dragCoordinator.beginDrag(idx, block, rawX, rawY)
         }
-
-        // BoardView tells us when a drop succeeds
-        boardView.onBlockDropped = {
-            trayView.refresh()
-        }
+        boardView.onBlockDropped = { trayView.refresh() }
     }
 
     private fun setupButtons() {
@@ -137,12 +132,7 @@ class MainActivity : AppCompatActivity() {
         btnPlayAgain.setOnClickListener { restartGame() }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // Touch interception – forwards MOVE/UP to DragCoordinator
-    // ══════════════════════════════════════════════════════════════════════
-
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        // Let coordinator handle MOVE/UP when a drag is in progress
         if (dragCoordinator.isDragging) {
             val consumed = dragCoordinator.onDispatchTouchEvent(ev)
             if (consumed) return true
@@ -150,9 +140,7 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // Game actions
-    // ══════════════════════════════════════════════════════════════════════
+    // ── Actions ───────────────────────────────────────────────────────────
 
     private fun restartGame() {
         gameOverLayout.visibility = View.GONE
@@ -160,30 +148,24 @@ class MainActivity : AppCompatActivity() {
         boardView.invalidate()
         trayView.refresh()
         tvScore.text     = "0"
-        tvHighScore.text = "BEST ${gameManager.score.highScore}"
+        tvHighScore.text = gameManager.score.highScore.toString()
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // UI helpers
-    // ══════════════════════════════════════════════════════════════════════
+    // ── UI helpers ────────────────────────────────────────────────────────
 
     private fun showCombo(label: String) {
-        tvCombo.text      = label
+        tvCombo.text       = label
         tvCombo.visibility = View.VISIBLE
         tvCombo.alpha      = 1f
         tvCombo.scaleX     = 0.5f
         tvCombo.scaleY     = 0.5f
-
         AnimatorSet().apply {
             playTogether(
-                ObjectAnimator.ofFloat(tvCombo, "scaleX", 0.5f, 1.2f, 1f),
-                ObjectAnimator.ofFloat(tvCombo, "scaleY", 0.5f, 1.2f, 1f),
-                ObjectAnimator.ofFloat(tvCombo, "alpha",  1f, 1f, 0f).apply {
-                    startDelay = 700
-                }
+                ObjectAnimator.ofFloat(tvCombo, "scaleX", 0.5f, 1.25f, 1f),
+                ObjectAnimator.ofFloat(tvCombo, "scaleY", 0.5f, 1.25f, 1f),
+                ObjectAnimator.ofFloat(tvCombo, "alpha",  1f, 1f, 0f).apply { startDelay = 700 }
             )
-            duration = 900
-            start()
+            duration = 900; start()
         }
         tvCombo.postDelayed({ tvCombo.visibility = View.INVISIBLE }, 1000)
     }
