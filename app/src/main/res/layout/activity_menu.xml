@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark">
+
+    <!-- ── زخرفة: بلوكات ديكورية في الخلفية ── -->
+    <com.blockpuzzle.ui.MenuDecoView
+        android:id="@+id/menuDecor"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+    <!-- ── محتوى رئيسي ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <!-- شعار اللعبة -->
+        <TextView
+            android:text="BLOCK"
+            android:textSize="68sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-black"
+            android:textColor="#FFFFFF"
+            android:letterSpacing="0.12"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:shadowColor="#6640C4FF"
+            android:shadowDx="0"
+            android:shadowDy="4"
+            android:shadowRadius="18"/>
+
+        <TextView
+            android:text="PUZZLE"
+            android:textSize="44sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-black"
+            android:textColor="#40C4FF"
+            android:letterSpacing="0.22"
+            android:layout_marginTop="-14dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:shadowColor="#9940C4FF"
+            android:shadowDx="0"
+            android:shadowDy="3"
+            android:shadowRadius="14"/>
+
+        <!-- خط زخرفي -->
+        <View
+            android:layout_width="120dp"
+            android:layout_height="3dp"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/divider_gradient"/>
+
+        <!-- Best Score -->
+        <TextView
+            android:id="@+id/tvMenuBest"
+            android:text=""
+            android:textSize="16sp"
+            android:textColor="#AACCFF"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.1"
+            android:layout_marginTop="18dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+        <!-- زر اللعب -->
+        <TextView
+            android:id="@+id/btnPlay"
+            android:text="▶  PLAY"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:fontFamily="sans-serif-black"
+            android:letterSpacing="0.1"
+            android:layout_marginTop="48dp"
+            android:paddingHorizontal="52dp"
+            android:paddingVertical="18dp"
+            android:background="@drawable/btn_play_bg"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:focusable="true"
+            android:elevation="6dp"/>
+
+        <!-- نص توجيهي -->
+        <TextView
+            android:text="Fill rows &amp; columns to clear them"
+            android:textSize="13sp"
+            android:textColor="#557799"
+            android:layout_marginTop="36dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+    </LinearLayout>
+
+</FrameLayout>
