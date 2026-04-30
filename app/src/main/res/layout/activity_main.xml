@@ -39,7 +39,7 @@
 
             <TextView
                 android:id="@+id/tvHighScore"
-                android:text="BEST 0"
+                android:text="0"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"
@@ -47,7 +47,7 @@
                 android:layout_height="wrap_content"/>
         </LinearLayout>
 
-        <!-- Current score (center, large) -->
+        <!-- Score -->
         <TextView
             android:id="@+id/tvScore"
             android:layout_width="0dp"
@@ -60,21 +60,21 @@
             android:gravity="center"
             android:fontFamily="sans-serif-black"/>
 
-        <!-- Restart button -->
+        <!-- Restart button — نظيف بدون خلفية بيضاوية -->
         <ImageButton
             android:id="@+id/btnRestart"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:layout_weight="1"
             android:src="@android:drawable/ic_menu_rotate"
-            android:background="@drawable/btn_circle_bg"
-            android:tint="#FFFFFF"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:tint="#AACCFF"
             android:contentDescription="Restart"
-            android:padding="10dp"/>
+            android:padding="8dp"/>
 
     </LinearLayout>
 
-    <!-- ── Combo label (animated, overlaid) ── -->
+    <!-- ── Combo label ── -->
     <TextView
         android:id="@+id/tvCombo"
         android:layout_width="wrap_content"
@@ -86,6 +86,10 @@
         android:visibility="invisible"
         android:elevation="8dp"
         android:fontFamily="sans-serif-black"
+        android:shadowColor="#99FFD600"
+        android:shadowDx="0"
+        android:shadowDy="2"
+        android:shadowRadius="10"
         app:layout_constraintTop_toBottomOf="@id/topBar"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
@@ -103,7 +107,19 @@
         android:layout_marginHorizontal="8dp"
         android:layout_marginTop="4dp"/>
 
-    <!-- ── Tray (3 pieces) ── -->
+    <!-- ── Particle overlay (فوق اللوحة مباشرة، شفافة) ── -->
+    <com.blockpuzzle.ui.ParticleView
+        android:id="@+id/particleView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clickable="false"
+        android:focusable="false"
+        app:layout_constraintTop_toTopOf="@id/boardView"
+        app:layout_constraintBottom_toBottomOf="@id/boardView"
+        app:layout_constraintStart_toStartOf="@id/boardView"
+        app:layout_constraintEnd_toEndOf="@id/boardView"/>
+
+    <!-- ── Tray ── -->
     <com.blockpuzzle.ui.TrayView
         android:id="@+id/trayView"
         android:layout_width="0dp"
